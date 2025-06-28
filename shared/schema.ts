@@ -1,4 +1,5 @@
 import { pgTable, text, serial, integer, decimal, timestamp, boolean } from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -28,6 +29,17 @@ export const orderItems = pgTable("order_items", {
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
   total: decimal("total", { precision: 10, scale: 2 }).notNull(),
 });
+
+export const ordersRelations = relations(orders, ({ many }) => ({
+  items: many(orderItems),
+}));
+
+export const orderItemsRelations = relations(orderItems, ({ one }) => ({
+  order: one(orders, {
+    fields: [orderItems.orderId],
+    references: [orders.id],
+  }),
+}));
 
 export const insertMenuItemSchema = createInsertSchema(menuItems).omit({
   id: true,

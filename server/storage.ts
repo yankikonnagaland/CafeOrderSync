@@ -10,6 +10,8 @@ import {
   type InsertOrderItem,
   type OrderWithItems
 } from "@shared/schema";
+import { db } from "./db";
+import { eq, and } from "drizzle-orm";
 
 export interface IStorage {
   // Menu Items
@@ -112,8 +114,13 @@ export class MemStorage implements IStorage {
   async createOrder(insertOrder: InsertOrder): Promise<Order> {
     const id = this.currentOrderId++;
     const order: Order = {
-      ...insertOrder,
       id,
+      orderNumber: insertOrder.orderNumber,
+      tableNumber: insertOrder.tableNumber,
+      customerName: insertOrder.customerName ?? null,
+      customerPhone: insertOrder.customerPhone ?? null,
+      status: insertOrder.status ?? "active",
+      total: insertOrder.total,
       createdAt: new Date(),
     };
     this.orders.set(id, order);
@@ -165,4 +172,101 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+export class DatabaseStorage implements IStorage {
+  async getMenuItem(id: number): Promise<MenuItem | undefined> {
+    const [item] = await db.select().from(menuItems).where(eq(menuItems.id, id));
+    return item || undefined;
+  }
+
+  async getMenuItemByName(name: string): Promise<MenuItem | undefined> {
+    const [item] = await db.select().from(menuItems).where(eq(menuItems.name, name));
+    return item || undefined;
+  }
+
+  async getAllMenuItems(): Promise<MenuItem[]> {
+    return await db.select().from(menuItems);
+  }
+
+  async createMenuItem(insertItem: InsertMenuItem): Promise<MenuItem> {
+    const [item] = await db
+      .insert(menuItems)
+      .values(insertItem)
+      .returning();
+    return item;
+  }
+
+  async getOrder(id: number): Promise<Order | undefined> {
+    const [order] = await db.select().from(orders).where(eq(orders.id, id));
+    return order || undefined;
+  }
+
+  async getOrderByNumber(orderNumber: string): Promise<OrderWithItems | undefined> {
+    const [order] = await db.select().from(orders).where(eq(orders.orderNumber, orderNumber));
+    if (!order) return undefined;
+
+    const items = await db.select().from(orderItems).where(eq(orderItems.orderId, order.id));
+    return { ...order, items };
+  }
+
+  async getAllActiveOrders(): Promise<OrderWithItems[]> {
+    const activeOrders = await db.select().from(orders).where(eq(orders.status, "active"));
+    
+    const ordersWithItems: OrderWithItems[] = [];
+    for (const order of activeOrders) {
+      const items = await db.select().from(orderItems).where(eq(orderItems.orderId, order.id));
+      ordersWithItems.push({ ...order, items });
+    }
+    
+    return ordersWithItems;
+  }
+
+  async createOrder(insertOrder: InsertOrder): Promise<Order> {
+    const [order] = await db
+      .insert(orders)
+      .values(insertOrder)
+      .returning();
+    return order;
+  }
+
+  async updateOrderStatus(id: number, status: string): Promise<Order | undefined> {
+    const [order] = await db
+      .update(orders)
+      .set({ status })
+      .where(eq(orders.id, id))
+      .returning();
+    return order || undefined;
+  }
+
+  async getOrderItems(orderId: number): Promise<OrderItem[]> {
+    return await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+  }
+
+  async createOrderItem(insertItem: InsertOrderItem): Promise<OrderItem> {
+    const [item] = await db
+      .insert(orderItems)
+      .values(insertItem)
+      .returning();
+    return item;
+  }
+
+  async updateOrderItem(id: number, updateData: Partial<InsertOrderItem>): Promise<OrderItem | undefined> {
+    const [item] = await db
+      .update(orderItems)
+      .set(updateData)
+      .where(eq(orderItems.id, id))
+      .returning();
+    return item || undefined;
+  }
+
+  async deleteOrderItem(id: number): Promise<boolean> {
+    const result = await db.delete(orderItems).where(eq(orderItems.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  generateOrderNumber(): string {
+    const timestamp = Date.now().toString().slice(-6);
+    return `ORD-${timestamp}`;
+  }
+}
+
+export const storage = new DatabaseStorage();

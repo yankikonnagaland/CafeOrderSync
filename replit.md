@@ -23,9 +23,11 @@ This is a full-stack restaurant order management system built for Pikonik Cafe. 
 - **Session Management**: Express sessions with PostgreSQL store
 
 ### Database Architecture
-- **Database**: PostgreSQL (configured for Neon serverless)
-- **ORM**: Drizzle ORM with schema-first approach
+- **Database**: PostgreSQL (Neon serverless) - **ACTIVE**
+- **ORM**: Drizzle ORM with schema-first approach and relations
 - **Migration Strategy**: Drizzle Kit for database migrations
+- **Storage**: DatabaseStorage class implementing IStorage interface
+- **Tables**: menu_items, orders, order_items with proper relations
 
 ## Key Components
 
@@ -95,7 +97,12 @@ This is a full-stack restaurant order management system built for Pikonik Cafe. 
 
 ```
 Changelog:
-- June 28, 2025. Initial setup
+- June 28, 2025. Initial setup with in-memory storage
+- June 28, 2025. Added PostgreSQL database integration with Neon serverless
+  * Created database tables: menu_items, orders, order_items
+  * Implemented DatabaseStorage class replacing MemStorage
+  * Added Drizzle ORM relations between orders and order items
+  * Successfully migrated from in-memory to persistent database storage
 ```
 
 ## User Preferences
